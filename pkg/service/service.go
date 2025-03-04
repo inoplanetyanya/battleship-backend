@@ -11,8 +11,10 @@ import (
 
 type Authorization interface {
 	CreateUser(user common.User) (int, error)
+	GetUser(username, password string) (common.User, error)
+	UserExist(username string) (common.User, error)
 	GenerateToken(username, password string) (string, error)
-	ParseToken(token string) (uint, error)
+	ParseToken(token string) (int, error)
 }
 
 type Service struct {
@@ -21,7 +23,7 @@ type Service struct {
 
 func NewService(repos *repository.Repository) *Service {
 	return &Service{
-		Authorization: NewAuthService(repos.Authorization),
+		Authorization: NewAuthService(repos.AuthRepository),
 	}
 }
 
@@ -42,7 +44,7 @@ func (s *AuthService) GenerateToken(username, password string) (string, error) {
 	return token.SignedString([]byte(signingKey))
 }
 
-func (s *AuthService) ParseToken(accessToken string) (uint, error) {
+func (s *AuthService) ParseToken(accessToken string) (int, error) {
 	token, err := jwt.ParseWithClaims(accessToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("invalid signing method")

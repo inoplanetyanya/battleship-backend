@@ -5,15 +5,18 @@ import (
 	"database/sql"
 )
 
-type Authorization interface {
+type AuthRepository interface {
 	CreateUser(user common.User) (int, error)
 	GetUser(username, password string) (common.User, error)
+	UserExist(username string) (common.User, error)
 }
 
 type Repository struct {
-	Authorization
+	AuthRepository
 }
 
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{}
+	return &Repository{
+		AuthRepository: NewAuthPostgres(db),
+	}
 }

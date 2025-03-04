@@ -8,9 +8,14 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("Ошибка загрузки .env файла: %s", err.Error())
+	}
+
 	dbhost := os.Getenv("DB_URL")
 	dbport := os.Getenv("DB_PORT")
 	dbuser := os.Getenv("DB_USER")
