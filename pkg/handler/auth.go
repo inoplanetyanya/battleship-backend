@@ -7,38 +7,19 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 )
 
-type Handler struct {
+type HandlerAuth struct {
 	services *service.Service
 }
 
-func NewHandler(services *service.Service) *Handler {
-	return &Handler{services: services}
+func NewHandlerAuth(services *service.Service) *HandlerAuth {
+	return &HandlerAuth{services: services}
 }
 
-func (h *Handler) InitRoutes() http.Handler {
-	router := http.NewServeMux()
-
-	authHandler := NewHandlerAuth(h.services)
-	authHandler.InitRoutes(router)
-
-	return enableCORS(router)
-}
-
-func enableCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+func (h *HandlerAuth) InitRoutes(router *http.ServeMux) {
+	router.HandleFunc("/api/sign-up", h.signUp)
+	router.HandleFunc("/api/sign-in", h.signIn)
 }
 
 type ResponseSuccess struct {
@@ -46,6 +27,7 @@ type ResponseSuccess struct {
 	Username string `json:"username"`
 	Message  string `json:"message"`
 	Success  bool   `json:"success"`
+	Token    string `json:"access"`
 }
 
 func newResponseSuccess(user common.User, message string) ResponseSuccess {
@@ -54,6 +36,17 @@ func newResponseSuccess(user common.User, message string) ResponseSuccess {
 		Message:  message,
 		UserID:   user.Id,
 		Username: user.Username,
+	}
+	return res
+}
+
+func newResponseSuccessWithToken(user common.User, message, token string) ResponseSuccess {
+	res := ResponseSuccess{
+		Success:  true,
+		Message:  message,
+		UserID:   user.Id,
+		Username: user.Username,
+		Token:    token,
 	}
 	return res
 }
@@ -87,7 +80,7 @@ func logStartEnd(handlerName string) func() {
 	}
 }
 
-func (h *Handler) signUp(w http.ResponseWriter, r *http.Request) {
+func (h *HandlerAuth) signUp(w http.ResponseWriter, r *http.Request) {
 	defer logStartEnd("signup")()
 
 	var body common.User
@@ -145,7 +138,7 @@ func (h *Handler) signUp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
+func (h *HandlerAuth) signIn(w http.ResponseWriter, r *http.Request) {
 	defer logStartEnd("signin")()
 
 	var body common.User
@@ -173,24 +166,13 @@ func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := newResponseSuccess(user, "successfully signed in")
-
 	token, err := h.services.GenerateToken(body.Username, body.Password)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error(), "[signin] "+err.Error())
 		return
 	}
 
-	cookieToken := &http.Cookie{
-		Name:     "token_access",
-		Value:    token,
-		Expires:  time.Now().Add(time.Hour),
-		HttpOnly: true,
-		SameSite: http.SameSiteNoneMode,
-		Path:     "/",
-	}
-
-	http.SetCookie(w, cookieToken)
+	response := newResponseSuccessWithToken(user, "successfully signed in", token)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		writeErrorResponse(w, http.StatusInternalServerError, err.Error(), "[signup] "+err.Error())
@@ -198,6 +180,6 @@ func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) getProfile(w http.ResponseWriter, r *http.Request) {
+func (h *HandlerAuth) getProfile(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Getting profile...")
 }
