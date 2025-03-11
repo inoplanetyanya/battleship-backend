@@ -18,8 +18,9 @@ const (
 )
 
 type tokenClaims struct {
-	jwt.Claims
-	UserId int `json:"user_id"`
+	jwt.RegisteredClaims
+	UserId   int    `json:"user_id"`
+	Username string `json:"username"`
 }
 
 type AuthService struct {
@@ -73,4 +74,76 @@ func generatePasswordHash(password string) string {
 	hash.Write([]byte(password))
 
 	return fmt.Sprintf("%x", hash.Sum([]byte(salt)))
+}
+
+func (s *AuthService) GenerateToken(username, password string) (string, error) {
+	user, err := s.repo.GetUser(username, generatePasswordHash(password))
+	if err != nil {
+		return "", err
+	}
+
+	claims := jwt.MapClaims{
+		"user_id":  user.Id,
+		"username": user.Username,
+		"exp":      time.Now().Add(tokenTTL).Unix(),
+		"iat":      time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	return token.SignedString([]byte(signingKey))
+}
+
+// TODO rename(?)
+func (s *AuthService) ParseToken(accessToken string) (int, error) {
+	token, err := jwt.ParseWithClaims(accessToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(signingKey), nil
+	})
+	if err != nil {
+		fmt.Println("parse token error: ", err)
+		return -1, err
+	}
+
+	if !token.Valid {
+		msg := "token is invalid"
+		fmt.Println(msg)
+		return -1, errors.New(msg)
+	}
+
+	claims, ok := token.Claims.(*tokenClaims)
+	if !ok {
+		fmt.Println("invalid token claims")
+		return -1, errors.New("invalid token claims")
+	}
+
+	return claims.UserId, nil
+}
+
+func (s *AuthService) GetUserByToken(accessToken string) (common.User, error) {
+	token, err := jwt.ParseWithClaims(accessToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(signingKey), nil
+	})
+	if err != nil {
+		fmt.Println("parse token error: ", err)
+		return common.User{}, err
+	}
+
+	if !token.Valid {
+		msg := "token is invalid"
+		fmt.Println(msg)
+		return common.User{}, errors.New(msg)
+	}
+
+	claims, ok := token.Claims.(*tokenClaims)
+	if !ok {
+		fmt.Println("invalid token claims")
+		return common.User{}, errors.New("invalid token claims")
+	}
+
+	user := common.User{
+		Id:       claims.UserId,
+		Username: claims.Username,
+	}
+
+	return user, nil
 }
