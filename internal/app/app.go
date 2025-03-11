@@ -4,7 +4,6 @@ import (
 	"battleship/pkg/handler"
 	"battleship/pkg/repository"
 	"battleship/pkg/service"
-	wsserver "battleship/pkg/websocket"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/joho/godotenv"
-	"golang.org/x/net/websocket"
 )
 
 func Run() {
@@ -47,10 +45,6 @@ func Run() {
 	services := service.NewService(repos)
 	handlers := handler.NewHandler(services)
 
-	portws := os.Getenv("PORT_WS")
-	serverws := wsserver.NewServer(1024)
-	http.Handle("/ws", websocket.Handler(serverws.HandleWS))
-
 	porthttp := os.Getenv("PORT_HTTP")
 	serverhttp := &http.Server{
 		Addr:    fmt.Sprintf("192.168.0.69:%s", porthttp),
@@ -58,15 +52,7 @@ func Run() {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		log.Printf("WebSocket-сервер запущен на ws://192.168.0.69:%s", portws)
-		if err := http.ListenAndServe(fmt.Sprintf("192.168.0.69:%s", portws), nil); err != nil {
-			log.Fatalf("Ошибка запуска WebSocket-сервера: %s", err.Error())
-		}
-	}()
+	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
