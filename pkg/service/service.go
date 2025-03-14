@@ -3,10 +3,6 @@ package service
 import (
 	"battleship/pkg/common"
 	"battleship/pkg/repository"
-	"errors"
-	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type Authorization interface {
@@ -15,51 +11,25 @@ type Authorization interface {
 	UserExist(username string) (common.User, error)
 	GenerateToken(username, password string) (string, error)
 	ParseToken(token string) (int, error)
+	GetUserByToken(token string) (common.User, error)
+}
+
+type Game interface {
+	AddPlayerToQueue(player common.Player) error
+	RemovePlayerFromQueue(player common.Player) (common.Player, error)
+	PlayerInQueue(player common.Player) bool
+	CreateGameRoom() *common.GameRoom
+	GameRoomList() *common.GameList
 }
 
 type Service struct {
 	Authorization
+	Game
 }
 
 func NewService(repos *repository.Repository) *Service {
 	return &Service{
 		Authorization: NewAuthService(repos.AuthRepository),
+		Game:          NewGameService(),
 	}
-}
-
-func (s *AuthService) GenerateToken(username, password string) (string, error) {
-	user, err := s.repo.GetUser(username, generatePasswordHash(password))
-	if err != nil {
-		return "", err
-	}
-
-	claims := jwt.MapClaims{
-		"user_id": user.Id,
-		"exp":     time.Now().Add(tokenTTL).Unix(),
-		"iat":     time.Now().Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	return token.SignedString([]byte(signingKey))
-}
-
-func (s *AuthService) ParseToken(accessToken string) (int, error) {
-	token, err := jwt.ParseWithClaims(accessToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("invalid signing method")
-		}
-
-		return []byte(signingKey), nil
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	claims, ok := token.Claims.(*tokenClaims)
-	if !ok {
-		return 0, errors.New("token claims are not of type *tokenClaims")
-	}
-
-	return claims.UserId, nil
 }
