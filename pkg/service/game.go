@@ -47,10 +47,10 @@ func (g *GameService) AddPlayerToQueue(player common.Player) error {
 		g.games.Add(gr)
 		gr.StartGame()
 
-		log.Printf("[gs] new game room added with players:\np1 %v\np2 %v", p, player)
+		log.Printf("[gs] new game room added with players:\n\tp1 %v\n\tp2 %v", p, player)
 	}
 
-	log.Println("queue size: ", q.Size())
+	log.Println("[gs] queue size: ", q.Size())
 
 	return nil
 }

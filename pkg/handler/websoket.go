@@ -3,7 +3,7 @@ package handler
 import (
 	"battleship/pkg/common"
 	"battleship/pkg/service"
-	"fmt"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -30,19 +30,27 @@ func (h *WebSocketHandler) hws(ws *websocket.Conn) {
 
 }
 
+func (h *WebSocketHandler) removePlayer(ws *websocket.Conn) {
+	h.service.Game.GameRoomList().MapByConn[ws].RemovePlayer(ws)
+}
+
 func (h *WebSocketHandler) readLoop(ws *websocket.Conn) {
-	buf := make([]byte, 1024)
 	for {
-		n, err := ws.Read(buf)
+		var msg string
+		err := websocket.Message.Receive(ws, &msg)
 		if err != nil {
-			if err == io.EOF {
-				fmt.Println("[ws] Connection closed", ws.RemoteAddr())
-				break
+			if errors.Is(err, io.EOF) {
+				log.Println("[ws] Connection closed by client")
+				h.removePlayer(ws)
+			} else if strings.Contains(err.Error(), "connection reset by peer") {
+				log.Println("[ws] Connection reset by peer")
+				h.removePlayer(ws)
+			} else {
+				log.Printf("[ws] Read error: %v", err)
+				h.removePlayer(ws)
 			}
-			log.Fatal("[ws] Read error: ", err)
-			continue
+			break
 		}
-		msg := string(buf[:n])
 
 		sm := strings.Split(msg, " ")
 		if len(sm) < 2 {

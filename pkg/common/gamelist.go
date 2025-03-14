@@ -15,7 +15,7 @@ func NewGameList() *GameList {
 }
 
 func (l *GameList) Add(gameRoom *GameRoom) {
-	l.mapByRoomId[gameRoom.RoomID] = gameRoom
+	l.mapByRoomId[gameRoom.RoomUUID] = gameRoom
 
 	conns := make([]*websocket.Conn, 0, len(gameRoom.Players))
 	for c := range gameRoom.Players {
@@ -28,7 +28,7 @@ func (l *GameList) Add(gameRoom *GameRoom) {
 }
 
 func (l *GameList) Remove(gameRoom *GameRoom) {
-	delete(l.mapByRoomId, gameRoom.RoomID)
+	delete(l.mapByRoomId, gameRoom.RoomUUID)
 	conns := make([]*websocket.Conn, 0, len(gameRoom.Players))
 	for c := range gameRoom.Players {
 		conns = append(conns, c)
