@@ -22,6 +22,9 @@ func (h *Handler) InitRoutes() http.Handler {
 	wsHandler := NewWebSocketHandler(h.services)
 	wsHandler.InitRoutes(router)
 
+	unknowPathHandler := NewUnknownPathsHandler(h.services)
+	unknowPathHandler.InitRoutes(router)
+
 	return enableCORS(router)
 }
 
